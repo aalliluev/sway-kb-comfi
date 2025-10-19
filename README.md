@@ -14,3 +14,7 @@ as simple as
 go mod tidy
 guild build
 ```
+
+## References
+* This tool heavily relies on a wonderful package [go-sway](https://github.com/joshuarubin/go-sway) that introduces IPC bindings for Sway with the concept of custom user handlers. Amazing stuff and a good place for me to learn more on best-practices in go. Thanks to the author [joshuarubin](https://github.com/joshuarubin)!
+* Analogue that also inspired me to write my own stuff is a [swaykbdd](https://github.com/artemsen/swaykbdd) written by [artemsen](https://github.com/artemsen) in C. However it supports even different layouts within one Application that uses tabbed interface, which is really nice to have if you are working in a Web Browser and have some web applications in tabs that need a dedicated layout. Some nice stuff, thanks for the inspiration!
