@@ -12,7 +12,7 @@ as simple as
 
 ```bash
 go mod tidy
-guild build
+go build
 ```
 
 ## References
