@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/joshuarubin/go-sway"
 )
@@ -20,7 +21,7 @@ func main() {
 
 	// some flags
 	verbose := flag.Bool("v", false, "adds verbosity")
-	defaultInputIdentifier := flag.String("keyboard-id", "", "Default input identifier to capture events from. Can be obtained from command\nswaymsg -t get_inputs | jq -r '.[] | select(.type==\"keyboard\") | .identifier'\nIf not specified, I'll do my best to infer the first one automatically")
+	keyboardID := flag.String("keyboard-id", "", "Keyboard identifier to report in logs. Layout events are accepted from\nall keyboard devices regardless, since sway keyboard groups share the layout.\nIdentifier can be obtained from command:\nswaymsg -t get_inputs | jq -r '.[] | select(.type==\"keyboard\") | .identifier'")
 	flag.Parse()
 
 	if !*verbose {
@@ -38,24 +39,43 @@ func main() {
 		log.Fatalln("Failed to create IPC client", err)
 	}
 
-	*defaultInputIdentifier = helpers.CheckKeyboardAndFindBestIfNotSpecified(ctx, client, *defaultInputIdentifier)
+	if *keyboardID != "" {
+		*keyboardID = helpers.CheckKeyboardAndFindBestIfNotSpecified(ctx, client, *keyboardID)
+	} else {
+		log.Printf("No keyboard specified with -keyboard-id; layout events from all keyboards will be accepted")
+	}
 
-	log.Printf("Input device to listen to is: %s", *defaultInputIdentifier)
+	log.Printf("Preferred input device is: %s", *keyboardID)
 
 	// main logic for handling Sway Events in a way to persist and restore layouts
 	handler := handlers.CreatelayoutHandler(
 		client,
 		&layouts.GlobalLayouts{
 			DefaultLayout: 0,
-			Layouts:       make(map[uint32]*layouts.LayoutInfo),
+			Layouts:       make(map[int64]*layouts.LayoutInfo),
 		},
-		*defaultInputIdentifier, //"5426:674:Razer_Razer_Ornata_V3_X_Keyboard",
+		*keyboardID,
 	)
+
+	// memorize the currently focused window so a restart doesn't cause a layout switch
+	handler.Seed(ctx)
 
 	// subscribing to events
 	go func() {
-		if err = sway.Subscribe(ctx, handler, sway.EventTypeWindow, sway.EventTypeInput); err != nil && !errors.Is(err, context.Canceled) {
-			log.Fatalln("Failed to subscribe.", err)
+		for {
+			err := sway.Subscribe(ctx, handler, sway.EventTypeWindow, sway.EventTypeInput)
+			if err == nil {
+				return
+			}
+			if errors.Is(err, context.Canceled) {
+				return
+			}
+			log.Printf("Failed to subscribe: %v. Retrying in 5s...", err)
+			select {
+			case <-ctx.Done():
+				return
+			case <-time.After(5 * time.Second):
+			}
 		}
 	}()
 

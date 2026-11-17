@@ -5,56 +5,33 @@ import (
 )
 
 const (
-	INVALID_LAYOUT int = -1 // to identified unset layout
+	INVALID_LAYOUT int = -1 // to identify unset layout
 )
 
 type LayoutInfo struct {
-	Pid    uint32 // Process Id
+	ID     int64  // sway container ID (unique for the lifetime of the container)
 	Layout int    // current layout
 	Name   string // Either Name or Class what's available
 }
 
 type GlobalLayouts struct {
-	Layouts       map[uint32]*LayoutInfo // persisted state per PID. TODO: dedicated state per other parameters? like for Tabbed Applications (browser)?
-	DefaultLayout int                    // default layout to be used for those processes that are not yet tracked (new too)
+	Layouts       map[int64]*LayoutInfo // persisted state per sway container ID
+	DefaultLayout int                   // default layout to be used for those windows that are not yet tracked
 }
 
-func (gl *GlobalLayouts) GetOrCreate(pid uint32, name string) (*LayoutInfo, bool) {
-	val, exists := gl.Layouts[pid]
-	if !exists {
-		val = &LayoutInfo{Pid: pid, Layout: gl.DefaultLayout, Name: name}
-		gl.Layouts[pid] = val
-		return val, false
-
+func (gl *GlobalLayouts) GetPersistedLayout(id int64) int {
+	if l, ok := gl.Layouts[id]; ok {
+		return l.Layout
 	}
-	return val, true
+	return INVALID_LAYOUT
 }
 
-func (gl *GlobalLayouts) GetPersistedLayout(id uint32, name string) (int, bool) {
-	l, existed := gl.GetOrCreate(id, name)
-	if l != nil {
-		// returning either existing Layout or Default one accoring to settings.
-		if existed {
-			log.Printf("Restored a persisted layout %d for ID: %d", l.Layout, id)
-			return l.Layout, true
-		} else {
-			log.Printf("Restoring Default layout %d for: PID: %d", gl.DefaultLayout, id)
-			return gl.DefaultLayout, false
-		}
+func (gl *GlobalLayouts) PersistLayoutForId(id int64, name string, layout int) {
+	l, ok := gl.Layouts[id]
+	if !ok {
+		l = &LayoutInfo{ID: id, Name: name}
+		gl.Layouts[id] = l
 	}
-
-	// if we are here returning INVALID_LAYOUT in order to prevent restoring an invalid value for this PID.
-	return INVALID_LAYOUT, false
-}
-
-func (gl *GlobalLayouts) PersistLayoutForId(id uint32, newLayoutIndex int) bool {
-	l, _ := gl.GetOrCreate(id, "")
-
-	if l != nil {
-		l.Layout = newLayoutIndex
-		log.Printf("Persisted layout %d for: ID: %d", newLayoutIndex, id)
-		return true
-	}
-
-	return false
+	l.Layout = layout
+	log.Printf("Persisted layout %d for container ID: %d (%s)", layout, id, name)
 }

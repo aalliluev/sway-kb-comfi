@@ -4,6 +4,7 @@ import (
 	"aalliluev/sway-kb-comfi/handlers"
 	"context"
 	"log"
+	"sort"
 	"strings"
 
 	"github.com/joshuarubin/go-sway"
@@ -61,15 +62,22 @@ func getKeyboardExactMatch(keyboard string, devices *map[string]string) bool {
 }
 
 func getKeyboardBestMatch(devices *map[string]string) string {
-	worstCaseScenarioChoice := ""
+	// sort for determinism: map iteration order is random in go
+	identifiers := make([]string, 0, len(*devices))
 	for i := range *devices {
-		if worstCaseScenarioChoice != "" {
-			worstCaseScenarioChoice = i
-		}
+		identifiers = append(identifiers, i)
+	}
+	sort.Strings(identifiers)
+
+	for _, i := range identifiers {
 		containsWordKeyboard := strings.Contains(strings.ToLower(i), handlers.INPUT_TYPE_KEYBOARD)
 		if containsWordKeyboard {
 			return i
 		}
 	}
-	return worstCaseScenarioChoice
+
+	if len(identifiers) > 0 {
+		return identifiers[0]
+	}
+	return ""
 }

@@ -1,0 +1,16 @@
+[Unit]
+Description=Per-window keyboard layout persistence for Sway
+Documentation=https://github.com/aalliluev/sway-kb-comfi
+# Start with the graphical session and stop together with it.
+PartOf=graphical-session.target
+After=graphical-session.target
+
+[Service]
+Type=simple
+# Adjust the path if the binary lives elsewhere.
+ExecStart=%h/.local/bin/sway-kb-comfi
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=graphical-session.target
